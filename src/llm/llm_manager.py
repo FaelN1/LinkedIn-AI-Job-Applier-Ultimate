@@ -118,6 +118,12 @@ class OpenAIModel(AIModel):
         return response
 
 
+def extract_answer(output: str) -> str:
+    """Return the text inside <answer></answer> tags if present, otherwise the whole output."""
+    match = re.search(r"<answer>(.*?)</answer>", output, re.DOTALL)
+    return match.group(1).strip() if match else output.strip()
+
+
 class ClaudeModel(AIModel):
     """Get access to Claude model"""
 
@@ -1051,6 +1057,7 @@ class GPTAnswerer:
                 "previous_questions": previous_questions,
             }
         )
+        output = extract_answer(output)
         logger.debug(f"Answer to question: {output}")
         return output
 
@@ -1070,6 +1077,7 @@ class GPTAnswerer:
                 "previous_questions": previous_questions,
             }
         )
+        output = extract_answer(output)
         logger.debug(f"Answer to question with error: {output}")
         return output
 

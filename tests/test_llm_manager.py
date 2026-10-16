@@ -15,6 +15,7 @@ from src.llm.llm_manager import (
     LoggerChatModel,
     OllamaModel,
     OpenAIModel,
+    extract_answer,
 )
 
 
@@ -1074,6 +1075,22 @@ class TestGPTAnswerer:
         assert "Skills" in result
 
 
+class TestExtractAnswer:
+    """Tests for extract_answer helper"""
+
+    def test_returns_text_inside_answer_tags(self):
+        output = "The question asks for the phone number.\n<answer>555-0100</answer>"
+        assert extract_answer(output) == "555-0100"
+
+    def test_keeps_multiline_answer(self):
+        assert extract_answer("<answer>\nHello,\n\nI'm available.\n</answer>") == (
+            "Hello,\n\nI'm available."
+        )
+
+    def test_falls_back_to_whole_output_without_tags(self):
+        assert extract_answer("  $12500 ") == "$12500"
+
+
 class TestGPTAnswererIntegration:
     """Integration tests for GPTAnswerer that test method interactions"""
 
@@ -1103,6 +1120,32 @@ class TestGPTAnswererIntegration:
 
         assert "Python experience" in result
         mock_chain.invoke.assert_called_once()
+
+    @patch("src.llm.llm_manager.AIAdapter")
+    @patch("src.llm.llm_manager.LoggerChatModel")
+    def test_answer_question_textual_wide_range_strips_reasoning(
+        self,
+        mock_logger_chat,
+        mock_ai_adapter,
+        mock_api_key,
+        mock_llm_proxy,
+        mock_resume_structured,
+        mock_resume_readable,
+    ):
+        """Only the tagged answer is returned when the model explains itself first"""
+        mock_chain = MagicMock()
+        mock_chain.invoke.return_value = (
+            "The previous question asked for the country code, so omit it.\n"
+            "<answer>555-0100</answer>"
+        )
+
+        answerer = GPTAnswerer(mock_api_key, mock_llm_proxy)
+        answerer.chains = {"text_question": mock_chain}
+        answerer.set_resume(mock_resume_structured, mock_resume_readable)
+
+        result = answerer.answer_question_textual_wide_range("Mobile phone number", [])
+
+        assert result == "555-0100"
 
     @patch("src.llm.llm_manager.AIAdapter")
     @patch("src.llm.llm_manager.LoggerChatModel")
