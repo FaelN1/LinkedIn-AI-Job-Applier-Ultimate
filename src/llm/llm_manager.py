@@ -1112,6 +1112,7 @@ class GPTAnswerer:
             }
         )
         logger.debug(f"Raw output for numeric question: {output}")
+        output = extract_answer(output)
         if output.lower() == "no info":
             return output
         try:
@@ -1142,9 +1143,10 @@ class GPTAnswerer:
             low = range_match.group(1).replace(",", "")
             high = range_match.group(2).replace(",", "")
             return f"{low}-{high}"
-        numbers = re.findall(r"\d+", output_str)
+        # Keep thousands separators together: "150,000" / "12.500" -> 150000 / 12500
+        numbers = re.findall(r"\d{1,3}(?:[,.]\d{3})+(?!\d)|\d+", output_str)
         if numbers:
-            return str(numbers[0])
+            return re.sub(r"[,.]", "", numbers[0])
         else:
             logger.error("No numbers found in the string")
             raise ValueError("No numbers found in the string")

@@ -774,6 +774,47 @@ class TestGPTAnswerer:
 
         assert result == "5"
 
+    @pytest.mark.parametrize(
+        "llm_output, expected",
+        [
+            (
+                "Salary is BRL 12,500 per month. Annual: 12,500 x 12 = 150,000.\n"
+                "<answer>150000</answer>",
+                "150000",
+            ),
+            (
+                "Node.js since 07/2021 (LukraRapido), about 5 years.\n<answer>5</answer>",
+                "5",
+            ),
+            ("150,000", "150000"),
+            ("about 7 years", "7"),
+        ],
+    )
+    @patch("src.llm.llm_manager.AIAdapter")
+    @patch("src.llm.llm_manager.LoggerChatModel")
+    def test_gpt_answerer_answer_question_numeric_uses_final_answer(
+        self,
+        mock_logger_chat,
+        mock_ai_adapter,
+        mock_api_key,
+        mock_llm_proxy,
+        mock_resume_structured,
+        mock_resume_readable,
+        llm_output,
+        expected,
+    ):
+        """Numbers in the model's reasoning are ignored and thousands separators are kept"""
+        mock_chain = MagicMock()
+        mock_chain.invoke.return_value = llm_output
+
+        answerer = GPTAnswerer(mock_api_key, mock_llm_proxy)
+        answerer.chains = {"numeric_question": mock_chain}
+        answerer.set_resume(mock_resume_structured, mock_resume_readable)
+
+        result = answerer.answer_question_numeric("What is your expected salary?", [])
+
+        assert result == expected
+
     @patch("src.llm.llm_manager.logger")
     @patch("src.llm.llm_manager.AIAdapter")
     @patch("src.llm.llm_manager.LoggerChatModel")

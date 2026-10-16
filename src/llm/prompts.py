@@ -346,6 +346,7 @@ How many years of experience do you have with AI?
 ---
 When responding, consider all available information, including projects, work experience, and academic background, to provide an accurate and well-reasoned answer.
 Make every effort to infer relevant experience and avoid defaulting to 0 if any related experience can be estimated.
+Output ONLY the final value wrapped in <answer></answer> tags (e.g. <answer>5</answer> or <answer>150000</answer>). No reasoning, explanation or units outside the tags.
 """
 
 coverletter_template = """
