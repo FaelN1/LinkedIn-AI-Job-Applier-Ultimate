@@ -138,6 +138,18 @@ class ClaudeModel(AIModel):
             logger.warning("Claude model rejects `temperature`, retrying without it")
             self.model = self._chat_cls(**self._model_kwargs)
             response = self.model.invoke(prompt)
+        # Newer Claude models return a list of content blocks (thinking + text); keep only the text.
+        if isinstance(response.content, list):
+            text = "".join(
+                block.get("text", "") if isinstance(block, dict) else str(block)
+                for block in response.content
+                if not isinstance(block, dict) or block.get("type") == "text"
+            )
+            response = AIMessage(
+                content=text,
+                response_metadata=response.response_metadata,
+                usage_metadata=getattr(response, "usage_metadata", None),
+            )
         logger.debug("Successfully got access to model via Claude API")
         return response
 

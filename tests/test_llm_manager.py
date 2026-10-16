@@ -222,6 +222,26 @@ class TestClaudeModel:
         assert "temperature" not in mock_chat_anthropic.call_args_list[1].kwargs
 
     @patch("langchain_anthropic.ChatAnthropic")
+    def test_claude_model_flattens_content_blocks(self, mock_chat_anthropic, mock_api_key):
+        """Thinking blocks are dropped and text blocks are joined into a plain string"""
+        mock_model = MagicMock()
+        mock_model.invoke.return_value = AIMessage(
+            content=[
+                {"type": "thinking", "thinking": "internal reasoning", "signature": "abc"},
+                {"type": "text", "text": "Score: 80\n"},
+                {"type": "text", "text": "Reasoning: Good fit"},
+            ],
+            usage_metadata={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        )
+        mock_chat_anthropic.return_value = mock_model
+
+        model = ClaudeModel(mock_api_key, "claude-new-model")
+        response = model.invoke("Test prompt")
+
+        assert response.content == "Score: 80\nReasoning: Good fit"
+        assert response.usage_metadata["total_tokens"] == 15
+
+    @patch("langchain_anthropic.ChatAnthropic")
     def test_claude_model_reraises_unrelated_errors(self, mock_chat_anthropic, mock_api_key):
         """Errors not caused by `temperature` are propagated"""
         mock_model = MagicMock()
