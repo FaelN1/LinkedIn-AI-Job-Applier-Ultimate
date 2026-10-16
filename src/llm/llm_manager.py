@@ -124,10 +124,20 @@ class ClaudeModel(AIModel):
     def __init__(self, api_key: str, llm_model: str) -> None:
         from langchain_anthropic import ChatAnthropic
 
-        self.model = ChatAnthropic(model=llm_model, api_key=api_key, temperature=TEMPERATURE)
+        self._chat_cls = ChatAnthropic
+        self._model_kwargs = {"model": llm_model, "api_key": api_key}
+        self.model = ChatAnthropic(**self._model_kwargs, temperature=TEMPERATURE)
 
     def invoke(self, prompt: str) -> BaseMessage:
-        response = self.model.invoke(prompt)
+        try:
+            response = self.model.invoke(prompt)
+        except Exception as e:
+            # Newer Claude models reject the `temperature` parameter; retry once without it.
+            if "temperature" not in str(e) or "deprecated" not in str(e):
+                raise
+            logger.warning("Claude model rejects `temperature`, retrying without it")
+            self.model = self._chat_cls(**self._model_kwargs)
+            response = self.model.invoke(prompt)
         logger.debug("Successfully got access to model via Claude API")
         return response
 

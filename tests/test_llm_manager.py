@@ -203,6 +203,37 @@ class TestClaudeModel:
         assert isinstance(response, AIMessage)
         assert response.content == "Test response"
 
+    @patch("langchain_anthropic.ChatAnthropic")
+    def test_claude_model_retries_without_temperature(self, mock_chat_anthropic, mock_api_key):
+        """Models that reject `temperature` are re-created without it and the call is retried"""
+        rejecting_model = MagicMock()
+        rejecting_model.invoke.side_effect = Exception(
+            "Error code: 400 - `temperature` is deprecated for this model."
+        )
+        accepting_model = MagicMock()
+        accepting_model.invoke.return_value = AIMessage(content="Test response")
+        mock_chat_anthropic.side_effect = [rejecting_model, accepting_model]
+
+        model = ClaudeModel(mock_api_key, "claude-new-model")
+        response = model.invoke("Test prompt")
+
+        assert response.content == "Test response"
+        assert "temperature" in mock_chat_anthropic.call_args_list[0].kwargs
+        assert "temperature" not in mock_chat_anthropic.call_args_list[1].kwargs
+
+    @patch("langchain_anthropic.ChatAnthropic")
+    def test_claude_model_reraises_unrelated_errors(self, mock_chat_anthropic, mock_api_key):
+        """Errors not caused by `temperature` are propagated"""
+        mock_model = MagicMock()
+        mock_model.invoke.side_effect = Exception("Error code: 401 - invalid x-api-key")
+        mock_chat_anthropic.return_value = mock_model
+
+        model = ClaudeModel(mock_api_key, "claude-new-model")
+
+        with pytest.raises(Exception, match="invalid x-api-key"):
+            model.invoke("Test prompt")
+        assert mock_chat_anthropic.call_count == 1
+
 
 class TestOllamaModel:
     """Tests for OllamaModel class"""
